@@ -1,0 +1,31 @@
+name: Bento
+options:
+  bundleIdPrefix: com.bento
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"   # iPhone + iPad
+
+targets:
+  Bento:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/Support/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.bento.app
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+    # NOTE: no `info:` block on purpose — that key makes XcodeGen REGENERATE
+    # (i.e. overwrite) the Info.plist on every `xcodegen generate`, wiping the
+    # camera-permission string and the .bento document type. The handcrafted
+    # plist at Sources/Support/Info.plist is referenced via INFOPLIST_FILE.

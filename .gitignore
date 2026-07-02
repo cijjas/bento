@@ -1,0 +1,21 @@
+# Xcode project is generated from project.yml — regenerate with `xcodegen generate`
+*.xcodeproj/
+*.xcworkspace/
+
+# Xcode / build artifacts
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# User-specific Xcode state
+xcuserdata/
+*.xcuserstate
