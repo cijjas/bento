@@ -26,7 +26,23 @@ struct MeasureScreen: View {
                           resetToken: resetToken)
                 .ignoresSafeArea()
 
-            StatusBanner(text: status)
+            VStack(spacing: 8) {
+                StatusBanner(text: status)
+                if let hint = MeasurementGuide.hint(for: label) {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: hint.icon)
+                            .font(.title3)
+                            .foregroundStyle(.yellow)
+                        Text(hint.text)
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.95))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(12)
+                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                }
+            }
 
             VStack {
                 Spacer()

@@ -11,9 +11,12 @@ struct CardDetailView: View {
     @State private var showingFitCheck = false
     @State private var showingPreview = false
     @State private var showingModel = false
+    @State private var showingOverlay = false
 
     var body: some View {
         List {
+            header
+
             Section("Dimensions") {
                 ForEach(card.dimensions) { dim in
                     LabeledContent(dim.label) {
@@ -42,6 +45,13 @@ struct CardDetailView: View {
                 } label: {
                     Label(card.category.usesBoundingBox ? "Compare to a space" : "Compare to my body",
                           systemImage: "checklist")
+                }
+                if !card.category.usesBoundingBox {
+                    Button {
+                        showingOverlay = true
+                    } label: {
+                        Label("Overlay on my clothes (AR)", systemImage: "camera.viewfinder")
+                    }
                 }
                 if card.hasModel {
                     Button {
@@ -97,11 +107,41 @@ struct CardDetailView: View {
         .fullScreenCover(isPresented: $showingPreview) {
             FitPreviewScreen(card: card)
         }
+        .fullScreenCover(isPresented: $showingOverlay) {
+            GarmentOverlayScreen(card: card).environmentObject(store)
+        }
         .fullScreenCover(isPresented: $showingModel) {
             if let filename = card.modelFilename {
                 ModelProjectionScreen(modelURL: ModelLibrary.url(for: filename))
             }
         }
+    }
+
+    private var header: some View {
+        Section {
+            HStack(spacing: 14) {
+                Image(systemName: card.category.systemImage)
+                    .font(.system(size: 34))
+                    .foregroundStyle(.tint)
+                    .frame(width: 52, height: 52)
+                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(card.category.title)
+                        .font(.subheadline.weight(.medium))
+                    Text(headerSubtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private var headerSubtitle: String {
+        var parts: [String] = []
+        if !card.capturedBy.isEmpty { parts.append("Measured by \(card.capturedBy)") }
+        parts.append(card.createdAt.formatted(date: .abbreviated, time: .omitted))
+        return parts.joined(separator: " · ")
     }
 
     private func prepareShare() {
@@ -117,6 +157,7 @@ private struct FitPreviewScreen: View {
     @Environment(\.dismiss) private var dismiss
     let card: BentoCard
     @State private var status = "Initializing AR…"
+    @State private var rotateToken = 0
 
     private var boxSize: simd_float3 {
         if let b = card.boundingBox {
@@ -131,14 +172,23 @@ private struct FitPreviewScreen: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            FitPreviewView(boxSize: boxSize, status: $status)
+            FitPreviewView(boxSize: boxSize, status: $status, rotateToken: rotateToken)
                 .ignoresSafeArea()
             StatusBanner(text: status)
             VStack {
                 Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.borderedProminent)
-                    .padding(.bottom, 30)
+                HStack(spacing: 12) {
+                    Button {
+                        rotateToken += 1
+                    } label: {
+                        Label("Rotate", systemImage: "rotate.right")
+                    }
+                    .buttonStyle(.bordered).tint(.white)
+
+                    Button("Done") { dismiss() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(.bottom, 30)
             }
         }
     }

@@ -35,6 +35,7 @@ final class BoxMeasureViewController: UIViewController, ARSessionDelegate {
     private var height: Float = 0.5      // default 50 cm, driven by slider
 
     private var footprintNodes: [SCNNode] = []
+    private var footprintLines: [SCNNode] = []
     private var boxNode: SCNNode?
 
     override func viewDidLoad() {
@@ -64,7 +65,8 @@ final class BoxMeasureViewController: UIViewController, ARSessionDelegate {
             config.sceneReconstruction = .mesh
         }
         sceneView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
-        onStatus?("Aim at the floor by one corner of the object and tap.")
+        // Instructions come from the SwiftUI step card; status is warnings only.
+        onStatus?("")
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -84,36 +86,70 @@ final class BoxMeasureViewController: UIViewController, ARSessionDelegate {
         a = nil; b = nil; c = nil; width = 0; depth = 0
         footprintNodes.forEach { $0.removeFromParentNode() }
         footprintNodes.removeAll()
+        footprintLines.forEach { $0.removeFromParentNode() }
+        footprintLines.removeAll()
         boxNode?.removeFromParentNode(); boxNode = nil
         step = .cornerA
         onStep?(step)
-        onStatus?("Aim at the floor by one corner of the object and tap.")
+        onStatus?("")
+    }
+
+    /// Step back one corner (undo the most recent tap).
+    func undo() {
+        switch step {
+        case .cornerA:
+            break
+        case .cornerB:
+            a = nil
+            removeLastMarker()
+            step = .cornerA
+        case .cornerC:
+            b = nil; width = 0
+            removeLastMarker()
+            removeLastLine()
+            step = .cornerB
+        case .adjustHeight, .done:
+            c = nil; depth = 0
+            removeLastMarker()
+            removeLastLine()
+            boxNode?.removeFromParentNode(); boxNode = nil
+            step = .cornerC
+        }
+        onStep?(step)
+    }
+
+    private func removeLastMarker() {
+        footprintNodes.popLast()?.removeFromParentNode()
+    }
+
+    private func removeLastLine() {
+        footprintLines.popLast()?.removeFromParentNode()
     }
 
     // MARK: - Tapping
 
     @objc private func handleTap(_ gesture: UITapGestureRecognizer) {
         guard let pos = floorRaycast() else {
-            onStatus?("Couldn't find the floor there — aim lower and tap.")
+            onStatus?("No floor found under the ＋ — aim the ＋ at the floor and tap again.")
             return
         }
+        onStatus?("")
         switch step {
         case .cornerA:
-            a = pos; dropMarker(pos)
+            a = pos; dropMarker(pos, number: 1)
             step = .cornerB; onStep?(step)
-            onStatus?("Now tap the next corner along one side.")
         case .cornerB:
-            b = pos; dropMarker(pos)
+            b = pos; dropMarker(pos, number: 2)
             width = simd_distance(horizontal(a!), horizontal(b!))
+            drawFootprintLine(from: a!, to: b!)
             step = .cornerC; onStep?(step)
-            onStatus?("Tap a corner on the perpendicular side.")
         case .cornerC:
-            c = pos; dropMarker(pos)
+            c = pos; dropMarker(pos, number: 3)
             depth = perpendicularDistance(of: c!, toLineFrom: a!, to: b!)
+            drawFootprintLine(from: b!, to: c!)
             step = .adjustHeight; onStep?(step)
             rebuildBox()
             emit()
-            onStatus?("Drag the height slider until the box matches the top.")
         case .adjustHeight, .done:
             break
         }
@@ -153,29 +189,24 @@ final class BoxMeasureViewController: UIViewController, ARSessionDelegate {
 
     // MARK: - Visuals
 
-    private func dropMarker(_ pos: simd_float3) {
-        let s = SCNSphere(radius: 0.008)
-        s.firstMaterial?.diffuse.contents = UIColor.systemYellow
-        let n = SCNNode(geometry: s)
-        n.simdPosition = pos
+    private func dropMarker(_ pos: simd_float3, number: Int) {
+        let n = GhostBox.cornerMarker(at: pos, number: number)
         sceneView.scene.rootNode.addChildNode(n)
         footprintNodes.append(n)
+    }
+
+    private func drawFootprintLine(from a: simd_float3, to b: simd_float3) {
+        let n = GhostBox.line(from: a, to: b, radius: 0.004)
+        sceneView.scene.rootNode.addChildNode(n)
+        footprintLines.append(n)
     }
 
     private func rebuildBox() {
         guard let a, let b else { return }
         boxNode?.removeFromParentNode()
 
-        let box = SCNBox(width: CGFloat(max(width, 0.001)),
-                         height: CGFloat(max(height, 0.001)),
-                         length: CGFloat(max(depth, 0.001)),
-                         chamferRadius: 0.004)
-        let mat = SCNMaterial()
-        mat.diffuse.contents = UIColor.systemBlue.withAlphaComponent(0.25)
-        mat.isDoubleSided = true
-        box.firstMaterial = mat
-
-        let node = SCNNode(geometry: box)
+        let size = simd_float3(max(width, 0.001), max(height, 0.001), max(depth, 0.001))
+        let node = GhostBox.node(size: size)
 
         // Centre of the footprint, lifted by half the height.
         let edgeDir = simd_normalize(horizontal(b) - horizontal(a))

@@ -163,7 +163,7 @@ struct CaptureFlowView: View {
                 Text(label)
                 Spacer()
                 Text(value > 0 ? store.format(value) : "Measure")
-                    .foregroundStyle(value > 0 ? .primary : .tint)
+                    .foregroundStyle(value > 0 ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
             }
         }
     }
@@ -179,10 +179,17 @@ struct CaptureFlowView: View {
                     }
                 } label: {
                     HStack {
-                        Text(dim.label)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(dim.label)
+                            if let hint = MeasurementGuide.hint(for: dim.label) {
+                                Text(hint.text)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         Spacer()
                         Text(dim.meters > 0 ? store.format(dim.meters) : "Measure")
-                            .foregroundStyle(dim.meters > 0 ? .primary : .tint)
+                            .foregroundStyle(dim.meters > 0 ? AnyShapeStyle(.primary) : AnyShapeStyle(.tint))
                     }
                 }
             }

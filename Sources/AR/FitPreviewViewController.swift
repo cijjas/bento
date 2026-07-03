@@ -73,49 +73,41 @@ final class FitPreviewViewController: UIViewController, ARSCNViewDelegate {
                                             floorPos.z)
     }
 
+    /// Rotate the placed box by 45° around the vertical axis so the user can
+    /// try different orientations against their space.
+    func rotate() {
+        guard let boxNode else { return }
+        let turn = SCNAction.rotateBy(x: 0, y: .pi / 4, z: 0, duration: 0.2)
+        boxNode.runAction(turn)
+    }
+
     private func rebuildBox() {
         boxNode?.removeFromParentNode()
-        let box = SCNBox(width: CGFloat(boxSize.x),
-                         height: CGFloat(boxSize.y),
-                         length: CGFloat(boxSize.z),
-                         chamferRadius: 0.01)
-
-        let fill = SCNMaterial()
-        fill.diffuse.contents = UIColor.systemBlue.withAlphaComponent(0.28)
-        fill.isDoubleSided = true
-        box.firstMaterial = fill
-
-        let node = SCNNode(geometry: box)
-        node.addChildNode(makeWireframe(for: boxSize))
+        let node = GhostBox.node(size: boxSize)
+        node.addChildNode(sizeLabel())
         sceneView.scene.rootNode.addChildNode(node)
         boxNode = node
     }
 
-    /// Bright edges so the footprint reads clearly against the room.
-    private func makeWireframe(for size: simd_float3) -> SCNNode {
-        let edge = SCNNode()
-        let hx = size.x / 2, hy = size.y / 2, hz = size.z / 2
-        let corners: [simd_float3] = [
-            [-hx, -hy, -hz], [hx, -hy, -hz], [hx, -hy, hz], [-hx, -hy, hz],
-            [-hx,  hy, -hz], [hx,  hy, -hz], [hx,  hy, hz], [-hx,  hy, hz],
-        ]
-        let pairs = [(0,1),(1,2),(2,3),(3,0),
-                     (4,5),(5,6),(6,7),(7,4),
-                     (0,4),(1,5),(2,6),(3,7)]
-        for (a, b) in pairs {
-            edge.addChildNode(lineNode(from: corners[a], to: corners[b]))
-        }
-        return edge
-    }
+    /// Floating "W × H × D" label hovering above the box, always facing the user.
+    private func sizeLabel() -> SCNNode {
+        let string = String(format: "%.0f × %.0f × %.0f cm",
+                            boxSize.x * 100, boxSize.y * 100, boxSize.z * 100)
+        let text = SCNText(string: string, extrusionDepth: 0.2)
+        text.font = .systemFont(ofSize: 10, weight: .bold)
+        text.flatness = 0.3
+        text.firstMaterial?.diffuse.contents = UIColor.white
+        text.firstMaterial?.emission.contents = UIColor.white
+        text.firstMaterial?.lightingModel = .constant
 
-    private func lineNode(from a: simd_float3, to b: simd_float3) -> SCNNode {
-        let v = b - a
-        let length = simd_length(v)
-        let cyl = SCNCylinder(radius: 0.004, height: CGFloat(length))
-        cyl.firstMaterial?.diffuse.contents = UIColor.systemBlue
-        let node = SCNNode(geometry: cyl)
-        node.simdPosition = (a + b) / 2
-        node.look(at: SCNVector3(b), up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 1, 0))
+        let node = SCNNode(geometry: text)
+        node.scale = SCNVector3(0.004, 0.004, 0.004)
+        let (minB, maxB) = text.boundingBox
+        node.position = SCNVector3(-Double(maxB.x - minB.x) * 0.004 / 2,
+                                   Double(boxSize.y) / 2 + 0.06, 0)
+        let billboard = SCNBillboardConstraint()
+        billboard.freeAxes = .Y
+        node.constraints = [billboard]
         return node
     }
 }
