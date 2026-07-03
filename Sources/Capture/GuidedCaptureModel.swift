@@ -1,5 +1,8 @@
 import Foundation
 import RealityKit
+// ObjectCaptureSession lives in the _RealityKit_SwiftUI cross-import overlay,
+// which only exists when RealityKit AND SwiftUI are both imported.
+import SwiftUI
 import Combine
 import os
 

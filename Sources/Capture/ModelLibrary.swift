@@ -43,7 +43,15 @@ enum ModelLibrary {
     @MainActor
     static func boundingBox(of filename: String) async -> BoxDimensions? {
         let fileURL = url(for: filename)
-        guard let entity = try? await Entity(contentsOf: fileURL) else { return nil }
+        // The async Entity(contentsOf:) initializer is iOS 18+; fall back to the
+        // synchronous loader on iOS 17.
+        let loaded: Entity?
+        if #available(iOS 18.0, *) {
+            loaded = try? await Entity(contentsOf: fileURL)
+        } else {
+            loaded = try? Entity.load(contentsOf: fileURL)
+        }
+        guard let entity = loaded else { return nil }
         let bounds = entity.visualBounds(relativeTo: nil)
         let e = bounds.extents               // simd_float3 of full sizes
         guard e.x > 0, e.y > 0, e.z > 0 else { return nil }

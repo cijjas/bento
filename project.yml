@@ -21,7 +21,10 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: Sources/Support/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.bento.app
+        # Unique per-developer ID: generic ones like com.bento.app collide in
+        # Apple's global App ID namespace when using free personal-team signing.
+        PRODUCT_BUNDLE_IDENTIFIER: com.christianijjas.bento
+        DEVELOPMENT_TEAM: SM93QP6U35
         CODE_SIGN_STYLE: Automatic
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO

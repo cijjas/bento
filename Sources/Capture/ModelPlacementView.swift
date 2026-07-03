@@ -50,7 +50,14 @@ struct ModelPlacementView: UIViewRepresentable {
         func preload() {
             Task { @MainActor in
                 do {
-                    let entity = try await Entity(contentsOf: modelURL)
+                    // The async Entity(contentsOf:) initializer is iOS 18+;
+                    // fall back to the synchronous loader on iOS 17.
+                    let entity: Entity
+                    if #available(iOS 18.0, *) {
+                        entity = try await Entity(contentsOf: modelURL)
+                    } else {
+                        entity = try Entity.load(contentsOf: modelURL)
+                    }
                     self.template = entity
                     self.status = "Tap a surface to place the object at real size."
                 } catch {
