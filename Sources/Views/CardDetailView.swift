@@ -18,8 +18,19 @@ struct CardDetailView: View {
             header
 
             Section("Dimensions") {
+                if !card.category.usesBoundingBox {
+                    GarmentDiagram(category: card.category)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .listRowBackground(Color(.systemBackground))
+                }
                 ForEach(card.dimensions) { dim in
-                    LabeledContent(dim.label) {
+                    HStack(spacing: 10) {
+                        if let letter = GarmentDiagram.letter(for: dim.label, in: card.category) {
+                            MeasureLetterBadge(letter: letter)
+                        }
+                        Text(dim.label)
+                        Spacer()
                         VStack(alignment: .trailing) {
                             Text(store.format(dim.meters))
                             if let note = dim.note {

@@ -172,6 +172,13 @@ struct CaptureFlowView: View {
 
     private var clothingSection: some View {
         Section {
+            if let category {
+                GarmentDiagram(category: category)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .listRowBackground(Color(.systemBackground))
+            }
+
             NavigationLink {
                 PhotoMeasureScreen(category: category ?? .clothingTop) { measured in
                     for (label, meters) in measured {
@@ -196,7 +203,11 @@ struct CaptureFlowView: View {
                         dim.meters = meters
                     }
                 } label: {
-                    HStack {
+                    HStack(spacing: 10) {
+                        if let category,
+                           let letter = GarmentDiagram.letter(for: dim.label, in: category) {
+                            MeasureLetterBadge(letter: letter)
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(dim.label)
                             if let hint = MeasurementGuide.hint(for: dim.label) {

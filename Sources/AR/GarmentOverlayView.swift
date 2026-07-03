@@ -12,20 +12,51 @@ import simd
 /// remote garment is bigger; where your garment sticks out, it's smaller.
 enum GarmentSilhouette {
 
+    /// A labelled measurement segment inside the silhouette's coordinate
+    /// space (metres, hem at y=0) — used to draw size-chart style diagrams.
+    struct MeasureLine {
+        let label: String
+        let from: CGPoint
+        let to: CGPoint
+    }
+
+    /// Silhouette path plus where each measurement runs on it.
+    struct Blueprint {
+        let path: UIBezierPath
+        let lines: [MeasureLine]
+    }
+
     /// Build a flat silhouette path (metres, XY plane, hem at y=0) for a card.
     /// Returns nil when the card has no usable width/length.
     static func path(for card: BentoCard) -> UIBezierPath? {
+        blueprint(for: card)?.path
+    }
+
+    static func blueprint(for card: BentoCard) -> Blueprint? {
         switch card.category {
         case .clothingTop:
-            return shirtPath(chestFlat: card.dimension(labeled: "Chest (flat)")?.meters,
-                             length: card.dimension(labeled: "Length")?.meters,
-                             shoulder: card.dimension(labeled: "Shoulder")?.meters,
-                             sleeve: card.dimension(labeled: "Sleeve")?.meters)
+            return shirtBlueprint(chestFlat: card.dimension(labeled: "Chest (flat)")?.meters,
+                                  length: card.dimension(labeled: "Length")?.meters,
+                                  shoulder: card.dimension(labeled: "Shoulder")?.meters,
+                                  sleeve: card.dimension(labeled: "Sleeve")?.meters)
         case .clothingBottom:
-            return trousersPath(waistFlat: card.dimension(labeled: "Waist (flat)")?.meters,
-                                hipFlat: card.dimension(labeled: "Hip (flat)")?.meters,
-                                length: card.dimension(labeled: "Length")?.meters,
-                                inseam: card.dimension(labeled: "Inseam")?.meters)
+            return trousersBlueprint(waistFlat: card.dimension(labeled: "Waist (flat)")?.meters,
+                                     hipFlat: card.dimension(labeled: "Hip (flat)")?.meters,
+                                     length: card.dimension(labeled: "Length")?.meters,
+                                     inseam: card.dimension(labeled: "Inseam")?.meters)
+        case .furniture, .generic:
+            return nil
+        }
+    }
+
+    /// A generically-proportioned blueprint for diagrams shown before any
+    /// numbers exist (e.g. in the capture form).
+    static func nominalBlueprint(for category: ItemCategory) -> Blueprint? {
+        switch category {
+        case .clothingTop:
+            return shirtBlueprint(chestFlat: 0.52, length: 0.72, shoulder: 0.46, sleeve: 0.22)
+        case .clothingBottom:
+            return trousersBlueprint(waistFlat: 0.40, hipFlat: 0.52, length: 1.02, inseam: 0.76)
         case .furniture, .generic:
             return nil
         }
@@ -33,8 +64,8 @@ enum GarmentSilhouette {
 
     /// Stylized flat T-shirt/jacket outline. Chest width and length are exact;
     /// everything else is proportional so the shape reads as a garment.
-    private static func shirtPath(chestFlat: Double?, length: Double?,
-                                  shoulder: Double?, sleeve: Double?) -> UIBezierPath? {
+    private static func shirtBlueprint(chestFlat: Double?, length: Double?,
+                                       shoulder: Double?, sleeve: Double?) -> Blueprint? {
         guard let cw = chestFlat, cw > 0.05 else { return nil }
         let W = CGFloat(cw)
         let L = CGFloat(length ?? cw * 1.3)
@@ -72,12 +103,23 @@ enum GarmentSilhouette {
         p.addLine(to: CGPoint(x: -cuffInnerR.x, y: cuffInnerR.y))
         p.addLine(to: CGPoint(x: -w2, y: yArm))                 // left side seam
         p.close()
-        return p
+
+        let lines = [
+            MeasureLine(label: "Chest (flat)",
+                        from: CGPoint(x: -w2, y: yArm), to: CGPoint(x: w2, y: yArm)),
+            MeasureLine(label: "Length",
+                        from: CGPoint(x: -w2 - 0.07, y: 0), to: CGPoint(x: -w2 - 0.07, y: L)),
+            MeasureLine(label: "Shoulder",
+                        from: CGPoint(x: -sw2, y: L + 0.05), to: CGPoint(x: sw2, y: L + 0.05)),
+            MeasureLine(label: "Sleeve",
+                        from: shoulderR, to: cuffOuterR),
+        ]
+        return Blueprint(path: p, lines: lines)
     }
 
     /// Stylized flat trousers outline. Waist width, length and inseam are exact.
-    private static func trousersPath(waistFlat: Double?, hipFlat: Double?,
-                                     length: Double?, inseam: Double?) -> UIBezierPath? {
+    private static func trousersBlueprint(waistFlat: Double?, hipFlat: Double?,
+                                          length: Double?, inseam: Double?) -> Blueprint? {
         guard let wf = waistFlat ?? hipFlat, wf > 0.05 else { return nil }
         let W = CGFloat(hipFlat.flatMap { $0 > 0.05 ? $0 : nil } ?? wf)
         let waistW = CGFloat(wf)
@@ -102,7 +144,19 @@ enum GarmentSilhouette {
         p.addLine(to: CGPoint(x: -ankleOuter, y: 0))            // left ankle hem
         p.addLine(to: CGPoint(x: -w2, y: L - (L - I) * 0.8))    // left outer seam → hip
         p.close()
-        return p
+
+        let yHip = L - (L - I) * 0.8
+        let lines = [
+            MeasureLine(label: "Waist (flat)",
+                        from: CGPoint(x: -ww2, y: L + 0.05), to: CGPoint(x: ww2, y: L + 0.05)),
+            MeasureLine(label: "Hip (flat)",
+                        from: CGPoint(x: -w2, y: yHip), to: CGPoint(x: w2, y: yHip)),
+            MeasureLine(label: "Inseam",
+                        from: CGPoint(x: 0, y: I), to: CGPoint(x: ankleGap, y: 0)),
+            MeasureLine(label: "Length",
+                        from: CGPoint(x: -w2 - 0.07, y: 0), to: CGPoint(x: -w2 - 0.07, y: L)),
+        ]
+        return Blueprint(path: p, lines: lines)
     }
 }
 
