@@ -202,20 +202,24 @@ final class BoxMeasureViewController: UIViewController, ARSessionDelegate {
     }
 
     private func rebuildBox() {
-        guard let a, let b else { return }
+        guard let a, let b, let c else { return }
         boxNode?.removeFromParentNode()
 
         let size = simd_float3(max(width, 0.001), max(height, 0.001), max(depth, 0.001))
         let node = GhostBox.node(size: size)
 
-        // Centre of the footprint, lifted by half the height.
+        // Centre of the footprint, lifted by half the height. The depth must
+        // extend toward the side where the user tapped the third corner, not
+        // a fixed side of edge AB.
         let edgeDir = simd_normalize(horizontal(b) - horizontal(a))
-        let perpDir = simd_float3(-edgeDir.z, 0, edgeDir.x)
+        var perpDir = simd_float3(-edgeDir.z, 0, edgeDir.x)
+        if simd_dot(horizontal(c) - horizontal(a), perpDir) < 0 { perpDir = -perpDir }
         let footCenter = (horizontal(a) + horizontal(b)) / 2 + perpDir * (depth / 2)
         node.simdPosition = simd_float3(footCenter.x, a.y + height / 2, footCenter.z)
 
-        // Rotate so the box's local X axis lines up with edge AB.
-        let yaw = atan2(edgeDir.x, edgeDir.z)
+        // Yaw that maps the box's local X (its width axis) onto edge AB:
+        // R_y(θ) sends +X to (cosθ, 0, -sinθ), so θ = atan2(-z, x) of edgeDir.
+        let yaw = atan2(-edgeDir.z, edgeDir.x)
         node.simdOrientation = simd_quatf(angle: yaw, axis: simd_float3(0, 1, 0))
 
         sceneView.scene.rootNode.addChildNode(node)

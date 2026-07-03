@@ -172,6 +172,24 @@ struct CaptureFlowView: View {
 
     private var clothingSection: some View {
         Section {
+            NavigationLink {
+                PhotoMeasureScreen(category: category ?? .clothingTop) { measured in
+                    for (label, meters) in measured {
+                        if let i = dimensions.firstIndex(where: {
+                            $0.label.caseInsensitiveCompare(label) == .orderedSame
+                        }) {
+                            dimensions[i].meters = meters
+                        } else {
+                            dimensions.append(Dimension(label: label, meters: meters))
+                        }
+                    }
+                }
+                .environmentObject(store)
+            } label: {
+                Label("Measure from a photo (all at once)", systemImage: "camera.viewfinder")
+                    .foregroundStyle(.tint)
+            }
+
             ForEach($dimensions) { $dim in
                 NavigationLink {
                     MeasureScreen(label: dim.label, current: dim.meters) { meters in
